@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIM 360 CDE - Common Data Environment</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js & Loaders for Real 3D / BIM Rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bim: {
+                            navy: '#0696D7',
+                            header: '#001E36',
+                            headerDark: '#001424',
+                            accent: '#0696D7',
+                            hover: '#007BB8',
+                            sidebar: '#F5F6F8',
+                            border: '#E1E5EC',
+                            tableHead: '#F8FAFC',
+                            rowHover: '#F0F7FC'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #aaa; }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col overflow-hidden select-none text-gray-800">
+
+    <!-- TOP HEADER BAR -->
+    <header class="bg-bim-header text-white h-12 flex items-center justify-between px-3 border-b border-gray-700 shrink-0">
+        <!-- Left Brand & Project Dropdown -->
+        <div class="flex items-center space-x-3">
+            <button class="p-1 hover:bg-gray-700 rounded text-gray-300 hover:text-white" title="Module Selector">
+                <i class="fas fa-th text-lg"></i>
+            </button>
+            <div class="flex items-center space-x-2 border-r border-gray-600 pr-4">
+                <div class="bg-blue-500 text-white font-bold px-1.5 py-0.5 rounded text-xs tracking-wider">B</div>
+                <span class="font-bold text-sm tracking-wide hidden sm:inline">AUTODESK <span class="font-normal opacity-90">BIM 360</span></span>
+            </div>
+            <!-- Project Switcher -->
+            <div class="relative group cursor-pointer">
+                <div class="flex items-center space-x-2 text-xs sm:text-sm font-medium hover:bg-white/10 px-2 py-1 rounded">
+                    <span id="currentProject" class="text-blue-300">JWB Engineering</span>
+                    <i class="fas fa-chevron-right text-[10px] text-gray-400"></i>
+                    <span id="currentSite" class="text-white">Arkansas_Site</span>
+                    <i class="fas fa-caret-down text-xs ml-1 text-gray-400"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center App Navigation Tabs -->
+        <nav class="flex h-full items-end space-x-1">
+            <button onclick="switchTab('folders')" id="tab-folders" class="px-5 py-2 text-sm font-medium border-b-2 border-bim-navy text-white bg-white/5 rounded-t">
+                FOLDERS
+            </button>
+            <button onclick="switchTab('issues')" id="tab-issues" class="px-5 py-2 text-sm font-medium border-b-2 border-transparent text-gray-300 hover:text-white hover:bg-white/5 rounded-t">
+                ISSUES <span id="issueBadgeCount" class="ml-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">3</span>
+            </button>
+            <button onclick="switchTab('analytics')" id="tab-analytics" class="px-5 py-2 text-sm font-medium border-b-2 border-transparent text-gray-300 hover:text-white hover:bg-white/5 rounded-t">
+                ANALYTICS
+            </button>
+        </nav>
+
+        <!-- Right User Tools -->
+        <div class="flex items-center space-x-3">
+            <button class="text-gray-300 hover:text-white p-1 rounded-full hover:bg-gray-700" title="Help">
+                <i class="far fa-question-circle text-lg"></i>
+            </button>
+            <button class="text-gray-300 hover:text-white p-1 rounded-full hover:bg-gray-700 relative" title="Notifications">
+                <i class="far fa-bell text-lg"></i>
+                <span class="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full"></span>
+            </button>
+            <div class="flex items-center space-x-2 border-l border-gray-600 pl-3 cursor-pointer">
+                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" class="w-7 h-7 rounded-full object-cover border border-white/20" alt="Avatar">
+                <span class="text-xs font-medium hidden md:inline">J. Architect</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- MODULE 1: DOCUMENT MANAGEMENT (FOLDERS VIEW) -->
+    <div id="view-folders" class="flex-1 flex overflow-hidden">
+        
+        <!-- LEFT NAVIGATION SIDEBAR -->
+        <aside class="w-64 bg-bim-sidebar border-r border-bim-border flex flex-col shrink-0">
+            <!-- View Mode Switcher -->
+            <div class="p-3 border-b border-bim-border">
+                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">View by</div>
+                <div class="grid grid-cols-2 bg-gray-200 p-0.5 rounded text-xs font-medium">
+                    <button class="py-1 text-center bg-white shadow-sm rounded text-gray-800">Folders</button>
+                    <button class="py-1 text-center text-gray-600 hover:text-gray-900">Sets</button>
+                </div>
+            </div>
+
+            <!-- Directory Tree -->
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-2 text-sm">
+                <!-- Root Item: Plans -->
+                <div class="mb-1">
+                    <div onclick="selectFolder('plans')" id="folder-plans" class="folder-item flex items-center justify-between p-1.5 rounded cursor-pointer hover:bg-gray-200 bg-blue-50 text-bim-navy font-semibold">
+                        <div class="flex items-center space-x-2 truncate">
+                            <i class="fas fa-folder-open text-blue-500"></i>
+                            <span class="truncate">Plans</span>
+                        </div>
+                        <i class="fas fa-ellipsis-h text-xs text-gray-400 hover:text-gray-600 p-1"></i>
+                    </div>
+                </div>
+
+                <!-- Root Item: Project Files -->
+                <div class="mb-1">
+                    <div onclick="toggleSubtree('project-files-tree')" class="flex items-center justify-between p-1.5 rounded cursor-pointer hover:bg-gray-200 text-gray-700 font-medium">
+                        <div class="flex items-center space-x-2 truncate">
+                            <i id="arrow-pf" class="fas fa-chevron-down text-[10px] text-gray-500 transition-transform"></i>
+                            <i class="fas fa-folder text-yellow-600"></i>
+                            <span class="truncate">Project Files</span>
+                        </div>
+                        <i class="fas fa-ellipsis-h text-xs text-gray-400 hover:text-gray-600 p-1"></i>
+                    </div>
+
+                    <!-- Subfolders -->
+                    <div id="project-files-tree" class="pl-5 space-y-0.5 mt-0.5">
+                        <div onclick="selectFolder('cad')" id="folder-cad" class="folder-item flex items-center justify-between p-1.5 rounded cursor-pointer hover:bg-gray-200 text-gray-600">
+                            <div class="flex items-center space-x-2 truncate">
+                                <i class="fas fa-folder text-gray-400"></i>
+                                <span class="truncate">CAD Files</span>
+                            </div>
+                        </div>
+                        <div onclick="selectFolder('infraworks')" id="folder-infraworks" class="folder-item flex items-center justify-between p-1.5 rounded cursor-pointer hover:bg-gray-200 text-gray-600">
+                            <div class="flex items-center space-x-2 truncate">
+                                <i class="fas fa-folder text-gray-400"></i>
+                                <span class="truncate">InfraWorks Models</span>
+                            </div>
+                        </div>
+                        <div onclick="selectFolder('pdfs')" id="folder-pdfs" class="folder-item flex items-center justify-between p-1.5 rounded cursor-pointer hover:bg-gray-200 text-gray-600">
+                            <div class="flex items-center space-x-2 truncate">
+                                <i class="fas fa-folder text-gray-400"></i>
+                                <span class="truncate">PDFs</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Storage Info Footer -->
+            <div class="p-3 border-t border-bim-border text-xs text-gray-500 bg-gray-50">
+                <div class="flex justify-between mb-1">
+                    <span>Storage used:</span>
+                    <span class="font-medium text-gray-700">12.4 GB / 50 GB</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-1.5">
+                    <div class="bg-bim-navy h-1.5 rounded-full" style="width: 25%"></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN WORKSPACE CONTAINER -->
+        <main class="flex-1 flex flex-col bg-white overflow-hidden">
+            
+            <!-- ACTION & CONTROL BAR -->
+            <div class="p-3 border-b border-bim-border flex flex-wrap items-center justify-between gap-3 bg-white">
+                <!-- Left: View Mode & Upload -->
+                <div class="flex items-center space-x-3">
+                    <div class="flex bg-gray-100 p-0.5 rounded border border-gray-300">
+                        <button class="p-1.5 px-2 bg-white rounded shadow-sm text-gray-700" title="List View"><i class="fas fa-th-list text-sm"></i></button>
+                        <button class="p-1.5 px-2 text-gray-400 hover:text-gray-700" title="Grid View"><i class="fas fa-th-large text-sm"></i></button>
+                    </div>
+
+                    <!-- Upload Button -->
+                    <label class="bg-bim-navy hover:bg-bim-hover text-white px-4 py-1.5 rounded text-sm font-medium shadow-sm flex items-center space-x-2 cursor-pointer transition-colors">
+                        <i class="fas fa-upload text-xs"></i>
+                        <span>Upload BIM / 3D File</span>
+                        <input type="file" id="fileUploadInput" accept=".rvt,.ifc,.obj,.stl,.gltf,.glb,.dwg,.pdf" multiple onchange="handleFileUpload(event)" class="hidden">
+                    </label>
+
+                    <button onclick="openDropZoneModal()" class="border border-bim-navy text-bim-navy hover:bg-blue-50 px-3 py-1.5 rounded text-sm font-medium flex items-center space-x-1.5">
+                        <i class="fas fa-cube text-xs"></i>
+                        <span>Drag & Drop 3D Model</span>
+                    </button>
+                </div>
+
+                <!-- Right: Search & Table Controls -->
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-xs"></i>
+                        <input type="text" id="searchInput" onkeyup="filterDocuments()" placeholder="Search for documents..." class="pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded w-64 focus:outline-none focus:border-bim-navy">
+                    </div>
+                    <button onclick="refreshDocumentTable()" class="p-2 text-gray-500 hover:text-gray-700 border border-gray-300 rounded" title="Refresh">
+                        <i class="fas fa-sync-alt text-xs"></i>
+                    </button>
+                    <button class="p-2 text-gray-500 hover:text-gray-700 border border-gray-300 rounded" title="Export CSV">
+                        <i class="fas fa-file-export text-xs"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- DOCUMENTS TABLE AREA -->
+            <div class="flex-1 overflow-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-bim-tableHead text-xs text-gray-600 font-semibold border-b border-bim-border sticky top-0 z-10">
+                        <tr>
+                            <th class="py-2.5 px-3 w-8 text-center">
+                                <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" class="rounded text-bim-navy focus:ring-0">
+                            </th>
+                            <th class="py-2.5 px-3 cursor-pointer hover:text-gray-900" onclick="sortTable('name')">
+                                Name <i class="fas fa-sort text-gray-300 ml-1"></i>
+                            </th>
+                            <th class="py-2.5 px-3 cursor-pointer hover:text-gray-900" onclick="sortTable('title')">
+                                Title <i class="fas fa-sort-up text-gray-600 ml-1"></i>
+                            </th>
+                            <th class="py-2.5 px-3">Set</th>
+                            <th class="py-2.5 px-3 text-center">Version</th>
+                            <th class="py-2.5 px-3">Last Updated</th>
+                            <th class="py-2.5 px-3 text-center">Status</th>
+                            <th class="py-2.5 px-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="documentTableBody" class="text-xs divide-y divide-gray-100">
+                        <!-- Dynamic Rows Injected by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- TABLE FOOTER / STATUS BAR -->
+            <div class="px-4 py-2 border-t border-bim-border text-xs text-gray-500 flex justify-between items-center bg-gray-50">
+                <div class="flex space-x-4">
+                    <span id="itemCount" class="font-medium">Showing 0 documents</span>
+                    <span id="selectedCount" class="text-bim-navy font-semibold">0 selected</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button class="px-2 py-1 text-gray-400 hover:text-gray-700 disabled:opacity-50" disabled><i class="fas fa-chevron-left"></i></button>
+                    <span>Page 1 of 1</span>
+                    <button class="px-2 py-1 text-gray-400 hover:text-gray-700 disabled:opacity-50" disabled><i class="fas fa-chevron-right"></i></button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- DRAG & DROP 3D MODEL MODAL -->
+    <div id="dropZoneModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200">
+            <div class="p-4 bg-bim-header text-white flex justify-between items-center">
+                <div class="flex items-center space-x-2 font-bold text-sm">
+                    <i class="fas fa-cube text-bim-navy"></i>
+                    <span>Cargar Modelo 3D / BIM Directo</span>
+                </div>
+                <button onclick="closeDropZoneModal()" class="text-gray-400 hover:text-white p-1">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div id="dropArea" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)" class="border-2 border-dashed border-gray-300 hover:border-bim-navy rounded-lg p-8 text-center bg-gray-50 hover:bg-blue-50/50 transition-colors cursor-pointer relative">
+                    <input type="file" id="modalFileInput" accept=".rvt,.ifc,.obj,.stl,.gltf,.glb,.dwg" onchange="handleFileUpload(event)" class="absolute inset-0 opacity-0 cursor-pointer">
+                    <div class="w-14 h-14 bg-blue-100 text-bim-navy rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-cloud-upload-alt text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-800 text-sm mb-1">Arrastra tu archivo BIM / 3D aquí</h3>
+                    <p class="text-xs text-gray-500 mb-3">Soporta archivos <span class="font-mono text-gray-700 font-semibold">.RVT, .IFC, .OBJ, .STL, .GLTF</span></p>
+                    <span class="inline-block bg-bim-navy text-white text-xs px-3 py-1.5 rounded font-medium shadow-sm">Seleccionar Archivo</span>
+                </div>
+            </div>
+            <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 text-right">
+                <button onclick="closeDropZoneModal()" class="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs font-semibold">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODULE 2: ISSUES MANAGEMENT (ISSUES VIEW) -->
+    <div id="view-issues" class="flex-1 flex flex-col bg-white overflow-hidden hidden">
+        <div class="p-3 border-b border-bim-border flex justify-between items-center bg-gray-50">
+            <div class="flex items-center space-x-3">
+                <button onclick="openCreateIssueModal()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-xs font-semibold shadow-sm flex items-center space-x-1.5">
+                    <i class="fas fa-plus"></i>
+                    <span>Create Issue</span>
+                </button>
+                <div class="flex items-center space-x-2 text-xs">
+                    <span class="text-gray-500 font-medium">Filter Status:</span>
+                    <select id="issueFilterStatus" onchange="renderIssues()" class="border border-gray-300 rounded px-2 py-1 bg-white">
+                        <option value="ALL">All Statuses</option>
+                        <option value="Open">Open</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+                </div>
+            </div>
+            <span class="text-xs text-gray-500 font-medium">BIM Coordination Issues</span>
+        </div>
+        <div class="flex-1 overflow-auto custom-scrollbar">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-bim-tableHead text-gray-600 font-semibold border-b border-bim-border sticky top-0">
+                    <tr>
+                        <th class="py-2.5 px-3">ID</th>
+                        <th class="py-2.5 px-3">Issue Title</th>
+                        <th class="py-2.5 px-3">Associated File</th>
+                        <th class="py-2.5 px-3">Status</th>
+                        <th class="py-2.5 px-3">Priority</th>
+                        <th class="py-2.5 px-3">Assignee</th>
+                        <th class="py-2.5 px-3">Due Date</th>
+                    </tr>
+                </thead>
+                <tbody id="issuesTableBody" class="divide-y divide-gray-100">
+                    <!-- Dynamic Issues Injected by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- MODULE 3: ANALYTICS VIEW -->
+    <div id="view-analytics" class="flex-1 p-6 bg-gray-50 overflow-y-auto hidden">
+        <div class="max-w-6xl mx-auto space-y-6">
+            <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Project CDE Analytics Overview</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div class="text-xs font-semibold text-gray-500 uppercase">Total Files Uploaded</div>
+                    <div class="text-3xl font-extrabold text-bim-navy mt-1" id="totalFilesCount">5</div>
+                    <div class="text-[11px] text-green-600 mt-2"><i class="fas fa-arrow-up mr-1"></i>12% increase this week</div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div class="text-xs font-semibold text-gray-500 uppercase">Active BIM Issues</div>
+                    <div class="text-3xl font-extrabold text-red-500 mt-1" id="activeIssuesCount">2</div>
+                    <div class="text-[11px] text-gray-500 mt-2">1 High Priority Clash</div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div class="text-xs font-semibold text-gray-500 uppercase">Approval Rate</div>
+                    <div class="text-3xl font-extrabold text-green-600 mt-1">94%</div>
+                    <div class="text-[11px] text-gray-500 mt-2">ISO 19650 Compliance Level 2</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CAD / 3D MODEL VIEWER MODAL WITH PROPERTIES & REAL MODEL LOADER -->
+    <div id="viewerModal" class="fixed inset-0 bg-black/90 z-50 hidden flex flex-col backdrop-blur-sm">
+        <!-- Viewer Topbar -->
+        <div class="h-12 bg-gray-900 border-b border-gray-700 flex items-center justify-between px-4 text-white">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-cube text-bim-navy text-lg"></i>
+                <span id="viewerDocTitle" class="font-medium text-sm">3D Building Preview</span>
+                <span id="viewerDocVersion" class="bg-gray-700 text-xs px-2 py-0.5 rounded text-gray-300">V1</span>
+                <span id="loaderStatus" class="text-xs text-blue-400 font-mono hidden"><i class="fas fa-spinner fa-spin mr-1"></i> Processing geometry...</span>
+            </div>
+            
+            <!-- Viewer Toolbar -->
+            <div class="flex items-center space-x-2 bg-gray-800 px-3 py-1 rounded border border-gray-700 text-xs">
+                <button onclick="reset3DCamera()" class="p-1.5 hover:bg-gray-700 rounded text-gray-300" title="Reset View"><i class="fas fa-home"></i> Home</button>
+                <button onclick="toggleWireframe()" class="p-1.5 hover:bg-gray-700 rounded text-gray-300" title="Wireframe Mode"><i class="fas fa-border-none"></i> Wireframe</button>
+                <button onclick="toggleBimPropertiesPanel()" class="p-1.5 hover:bg-gray-700 rounded text-yellow-400" title="BIM Element Properties"><i class="fas fa-list-alt"></i> Properties</button>
+                <button onclick="addIssueFromViewer()" class="p-1.5 hover:bg-red-600 rounded text-red-400 hover:text-white" title="Pin Issue"><i class="fas fa-exclamation-circle"></i> Create Issue</button>
+            </div>
+
+            <button onclick="closeViewer()" class="text-gray-400 hover:text-white text-lg p-1">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- 3D Viewport & Sidebar Layout -->
+        <div class="flex-1 flex relative overflow-hidden bg-gradient-to-b from-gray-950 to-gray-850">
+            <!-- Three.js Canvas Container -->
+            <div id="canvas3DContainer" class="flex-1 h-full w-full relative"></div>
+
+            <!-- BIM Element Properties Panel (Autodesk Style) -->
+            <aside id="bimPropertiesPanel" class="w-80 bg-gray-900/95 border-l border-gray-700 text-white p-4 flex flex-col justify-between backdrop-blur overflow-y-auto custom-scrollbar">
+                <div>
+                    <div class="flex justify-between items-center border-b border-gray-700 pb-2 mb-3">
+                        <h4 class="font-bold text-xs uppercase tracking-wider text-bim-navy"><i class="fas fa-info-circle mr-1"></i> BIM Element Properties</h4>
+                        <button onclick="toggleBimPropertiesPanel()" class="text-gray-400 hover:text-white text-xs"><i class="fas fa-times"></i></button>
+                    </div>
+
+                    <div id="selectedElementInfo" class="space-y-3 text-xs">
+                        <div class="p-2.5 bg-gray-800 rounded border border-gray-700">
+                            <span class="text-gray-400 block text-[10px] uppercase font-semibold">Element Name</span>
+                            <span id="propObjName" class="font-semibold text-blue-300">Structural Column / Slab</span>
+                        </div>
+
+                        <div class="space-y-1.5 font-mono">
+                            <div class="flex justify-between border-b border-gray-800 pb-1">
+                                <span class="text-gray-400">Category:</span>
+                                <span id="propCategory" class="text-gray-200">Revit Model Geometry</span>
+                            </div>
+                            <div class="flex justify-between border-b border-gray-800 pb-1">
+                                <span class="text-gray-400">System / Level:</span>
+                                <span id="propLevel" class="text-gray-200">Level 2 - Structural</span>
+                            </div>
+                            <div class="flex justify-between border-b border-gray-800 pb-1">
+                                <span class="text-gray-400">Material:</span>
+                                <span id="propMaterial" class="text-gray-200">Concrete Cast-in-Place</span>
+                            </div>
+                            <div class="flex justify-between border-b border-gray-800 pb-1">
+                                <span class="text-gray-400">Volume:</span>
+                                <span id="propVolume" class="text-gray-200">14.85 m³</span>
+                            </div>
+                            <div class="flex justify-between border-b border-gray-800 pb-1">
+                                <span class="text-gray-400">Phase:</span>
+                                <span class="text-green-400 font-semibold">New Construction</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-gray-800 text-[11px] text-gray-400 flex items-center justify-between">
+                    <span>Click on 3D objects to inspect parameters</span>
+                    <i class="fas fa-mouse-pointer text-bim-navy"></i>
+                </div>
+            </aside>
+
+            <!-- Floating Overlay Navigation Info -->
+            <div class="absolute bottom-4 left-4 bg-gray-900/90 text-white p-3 rounded border border-gray-700 text-xs max-w-xs backdrop-blur pointer-events-none">
+                <div class="font-semibold text-bim-navy mb-1"><i class="fas fa-cube mr-1"></i> Interactive BIM Viewport</div>
+                <p class="text-gray-300">Left Click: Select & Orbit<br>Right Click + Drag: Pan View<br>Scroll: Zoom</p>
+                <div class="mt-2 text-[10px] text-gray-400 border-t border-gray-800 pt-1">
+                    💡 <span class="text-yellow-400 font-semibold">Tip para Revit:</span> Exporta a <span class="text-white font-mono">.IFC</span> u <span class="text-white font-mono">.OBJ</span> para renderizado vectorial exacto 1:1.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VERSION HISTORY MODAL -->
+    <div id="versionModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div class="p-3 bg-bim-header text-white flex justify-between items-center">
+                <h3 class="font-bold text-sm">Version History</h3>
+                <button onclick="closeVersionModal()" class="text-gray-300 hover:text-white"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-4 max-h-80 overflow-y-auto custom-scrollbar">
+                <div id="versionHistoryList" class="space-y-3 text-xs">
+                    <!-- Injected History items -->
+                </div>
+            </div>
+            <div class="p-3 bg-gray-50 border-t flex justify-end">
+                <button onclick="closeVersionModal()" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs font-medium">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE ISSUE MODAL -->
+    <div id="createIssueModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
+            <div class="p-3 bg-bim-header text-white flex justify-between items-center">
+                <h3 class="font-bold text-sm">Create New BIM Issue</h3>
+                <button onclick="closeCreateIssueModal()" class="text-gray-300 hover:text-white"><i class="fas fa-times"></i></button>
+            </div>
+            <form onsubmit="handleCreateIssue(event)" class="p-4 space-y-3 text-xs">
+                <div>
+                    <label class="block font-medium text-gray-700 mb-1">Issue Title</label>
+                    <input type="text" id="issueTitleInput" required class="w-full border rounded p-2 focus:ring-1 focus:ring-bim-navy" placeholder="e.g. Pipe Clash with Structural Beam">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-gray-700 mb-1">Assignee</label>
+                        <select id="issueAssigneeInput" class="w-full border rounded p-2">
+                            <option>J. Architect</option>
+                            <option>M. Engineer</option>
+                            <option>S. Contractor</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium text-gray-700 mb-1">Priority</label>
+                        <select id="issuePriorityInput" class="w-full border rounded p-2">
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-medium text-gray-700 mb-1">Associated Document</label>
+                    <select id="issueDocInput" class="w-full border rounded p-2">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <div class="pt-2 flex justify-end space-x-2">
+                    <button type="button" onclick="closeCreateIssueModal()" class="px-3 py-1.5 border rounded text-gray-600 hover:bg-gray-100">Cancel</button>
+                    <button type="submit" class="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded font-medium">Create Issue</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- APPLICATION JAVASCRIPT LOGIC -->
+    <script>
+        // MOCK INITIAL DATA STORE
+        let documents = [
+            { id: 1, name: "TITLE SHEET.pdf", title: "1", set: "IFC", version: "V1", lastUpdated: "Aug 10, 2026", folder: "plans", type: "pdf", size: "2.4 MB" },
+            { id: 2, name: "PLAN & PROFILE BURTON AVE.dwg", title: "2", set: "IFC", version: "V1", lastUpdated: "Aug 10, 2026", folder: "plans", type: "cad", size: "14.1 MB" },
+            { id: 3, name: "ARCHITECTURAL_TOWER.gltf", title: "A-102", set: "BIM-LOD350", version: "V1", lastUpdated: "Aug 14, 2026", folder: "cad", type: "bim", size: "18.2 MB", realFile: null },
+            { id: 10, name: "FOUNDATION_STRUCTURAL_MODEL.rvt", title: "A-101", set: "BIM-LOD300", version: "V2", lastUpdated: "Aug 18, 2026", folder: "cad", type: "bim", size: "45.8 MB", realFile: null },
+            { id: 11, name: "INFRAWORKS_TERRAIN_SITE.stl", title: "SITE-01", set: "CONCEPT", version: "V1", lastUpdated: "Aug 02, 2026", folder: "infraworks", type: "cad", size: "12.0 MB", realFile: null }
+        ];
+
+        let issues = [
+            { id: "ISS-01", title: "Invert Elevation Discrepancy", docName: "FOUNDATION_STRUCTURAL_MODEL.rvt", status: "Open", priority: "High", assignee: "M. Engineer", dueDate: "Sep 05, 2026" },
+            { id: "ISS-02", title: "Storm Drain Pipe Interference", docName: "ARCHITECTURAL_TOWER.gltf", status: "Pending", priority: "Medium", assignee: "J. Architect", dueDate: "Sep 12, 2026" }
+        ];
+
+        let currentFolder = 'plans';
+        let selectedDocIds = new Set();
+        let threeScene, threeCamera, threeRenderer, threeControls, raycaster, mouse;
+        let activeModelGroup = null;
+        let selectedMesh = null;
+        let activeLoadedFile = null;
+
+        window.onload = function() {
+            renderDocumentTable();
+            renderIssues();
+            populateIssueDocDropdown();
+        };
+
+        // FILE UPLOAD HANDLER
+        function handleFileUpload(event) {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                processDroppedFiles(files);
+            }
+            // Reset input so re-uploading the same file triggers onchange
+            event.target.value = '';
+        }
+
+        // RENDER DOCUMENT TABLE
+        function renderDocumentTable(filteredDocs = null) {
+            const tbody = document.getElementById('documentTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const list = filteredDocs || documents.filter(d => d.folder === currentFolder);
+
+            const countEl = document.getElementById('itemCount');
+            if (countEl) countEl.innerText = `Showing ${list.length} documents`;
+
+            const selectedEl = document.getElementById('selectedCount');
+            if (selectedEl) selectedEl.innerText = `${selectedDocIds.size} selected`;
+
+            if (list.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-8 text-gray-400">
+                            <i class="fas fa-folder-open text-3xl mb-2 block"></i>
+                            No documents found in this folder
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            list.forEach(doc => {
+                const isSelected = selectedDocIds.has(doc.id);
+                const tr = document.createElement('tr');
+                tr.className = `hover:bg-bim-rowHover transition-colors ${isSelected ? 'bg-blue-50/60' : ''}`;
+                
+                let iconClass = "fa-file text-gray-400";
+                if (doc.type === 'pdf') iconClass = "fa-file-pdf text-red-500";
+                if (doc.type === 'cad') iconClass = "fa-file-code text-blue-500";
+                if (doc.type === 'bim') iconClass = "fa-cube text-bim-navy";
+
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 text-center">
+                        <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="toggleSelectDoc(${doc.id}, event)" class="rounded text-bim-navy focus:ring-0">
+                    </td>
+                    <td class="py-2.5 px-3 font-medium text-gray-800">
+                        <div class="flex items-center space-x-2 cursor-pointer group" onclick="open3DViewer('${doc.name}', '${doc.version}')">
+                            <i class="fas ${iconClass} text-sm"></i>
+                            <span class="group-hover:text-bim-navy group-hover:underline truncate max-w-xs font-semibold">${doc.name}</span>
+                        </div>
+                    </td>
+                    <td class="py-2.5 px-3 text-gray-600">${doc.title}</td>
+                    <td class="py-2.5 px-3 text-gray-600">${doc.set}</td>
+                    <td class="py-2.5 px-3 text-center">
+                        <span onclick="openVersionModal('${doc.name}', '${doc.version}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-mono text-[11px] cursor-pointer border border-gray-300">
+                            ${doc.version}
+                        </span>
+                    </td>
+                    <td class="py-2.5 px-3 text-gray-500">${doc.lastUpdated}</td>
+                    <td class="py-2.5 px-3 text-center">
+                        <span class="bg-green-100 text-green-800 text-[10px] px-2 py-0.5 rounded-full font-semibold">Approved</span>
+                    </td>
+                    <td class="py-2.5 px-3 text-right space-x-1">
+                        <button onclick="open3DViewer('${doc.name}', '${doc.version}')" class="p-1 hover:text-bim-navy text-gray-500 rounded" title="View 3D / 2D">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button onclick="openVersionModal('${doc.name}', '${doc.version}')" class="p-1 hover:text-bim-navy text-gray-500 rounded" title="History">
+                            <i class="fas fa-history"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // SEARCH AND SELECTION HELPERS
+        function filterDocuments() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = documents.filter(d => 
+                d.folder === currentFolder && 
+                (d.name.toLowerCase().includes(query) || d.title.toLowerCase().includes(query) || d.set.toLowerCase().includes(query))
+            );
+            renderDocumentTable(filtered);
+        }
+
+        function refreshDocumentTable() {
+            renderDocumentTable();
+        }
+
+        function toggleSelectAll(masterCb) {
+            const visibleDocs = documents.filter(d => d.folder === currentFolder);
+            if (masterCb.checked) {
+                visibleDocs.forEach(d => selectedDocIds.add(d.id));
+            } else {
+                visibleDocs.forEach(d => selectedDocIds.delete(d.id));
+            }
+            renderDocumentTable();
+        }
+
+        function toggleSelectDoc(id, event) {
+            event.stopPropagation();
+            if (selectedDocIds.has(id)) {
+                selectedDocIds.delete(id);
+            } else {
+                selectedDocIds.add(id);
+            }
+            renderDocumentTable();
+        }
+
+        let sortDirections = {};
+        function sortTable(key) {
+            sortDirections[key] = !sortDirections[key];
+            const dir = sortDirections[key] ? 1 : -1;
+            documents.sort((a, b) => {
+                if (a[key] < b[key]) return -1 * dir;
+                if (a[key] > b[key]) return 1 * dir;
+                return 0;
+            });
+            renderDocumentTable();
+        }
+
+        function toggleWireframe() {
+            if (!activeModelGroup) return;
+            activeModelGroup.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    child.material.wireframe = !child.material.wireframe;
+                }
+            });
+        }
+
+        function reset3DCamera() {
+            if (threeCamera && threeControls) {
+                threeCamera.position.set(30, 30, 30);
+                threeControls.target.set(0, 0, 0);
+                threeControls.update();
+            }
+        }
+
+        function on3DObjectClick(event) {
+            if (!threeRenderer || !threeCamera || !activeModelGroup) return;
+
+            const rect = threeRenderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, threeCamera);
+            const intersects = raycaster.intersectObjects(activeModelGroup.children, true);
+
+            if (intersects.length > 0) {
+                const hit = intersects[0].object;
+                if (selectedMesh && selectedMesh.material && selectedMesh.userData.origColor) {
+                    selectedMesh.material.color.setHex(selectedMesh.userData.origColor);
+                }
+
+                selectedMesh = hit;
+                if (hit.material && hit.material.color) {
+                    if (!hit.userData.origColor) hit.userData.origColor = hit.material.color.getHex();
+                    hit.material.color.setHex(0xeab308); // Highlight active selection in yellow
+                }
+
+                const info = hit.userData;
+                document.getElementById('propObjName').innerText = info.name || hit.name || "BIM Mesh Element";
+                document.getElementById('propCategory').innerText = info.category || "General Geometry";
+                document.getElementById('propLevel').innerText = info.level || "Level 1";
+                document.getElementById('propMaterial').innerText = info.material || "Default Material";
+                document.getElementById('propVolume').innerText = info.volume || "N/A";
+            }
+        }
+
+        // TAB SWITCHING LOGIC
+        function switchTab(tabName) {
+            ['folders', 'issues', 'analytics'].forEach(tab => {
+                const navBtn = document.getElementById(`tab-${tab}`);
+                const viewDiv = document.getElementById(`view-${tab}`);
+                if (navBtn && viewDiv) {
+                    if (tab === tabName) {
+                        navBtn.className = "px-5 py-2 text-sm font-medium border-b-2 border-bim-navy text-white bg-white/5 rounded-t";
+                        viewDiv.classList.remove('hidden');
+                    } else {
+                        navBtn.className = "px-5 py-2 text-sm font-medium border-b-2 border-transparent text-gray-300 hover:text-white hover:bg-white/5 rounded-t";
+                        viewDiv.classList.add('hidden');
+                    }
+                }
+            });
+
+            if (tabName === 'analytics') {
+                const tf = document.getElementById('totalFilesCount');
+                if (tf) tf.innerText = documents.length;
+                const ai = document.getElementById('activeIssuesCount');
+                if (ai) ai.innerText = issues.filter(i => i.status !== 'Closed').length;
+            }
+        }
+
+        // FOLDER SELECTION LOGIC
+        function selectFolder(folderId) {
+            currentFolder = folderId;
+            document.querySelectorAll('.folder-item').forEach(el => {
+                el.classList.remove('bg-blue-50', 'text-bim-navy', 'font-semibold');
+                el.classList.add('text-gray-600');
+            });
+            const selectedFolderEl = document.getElementById(`folder-${folderId}`);
+            if (selectedFolderEl) {
+                selectedFolderEl.classList.add('bg-blue-50', 'text-bim-navy', 'font-semibold');
+                selectedFolderEl.classList.remove('text-gray-600');
+            }
+            renderDocumentTable();
+        }
+
+        function toggleSubtree(treeId) {
+            const el = document.getElementById(treeId);
+            const arrow = document.getElementById('arrow-pf');
+            if (el) {
+                el.classList.toggle('hidden');
+                if (arrow) arrow.classList.toggle('rotate-[-90deg]');
+            }
+        }
+
+        // DRAG & DROP MODAL HANDLERS
+        function openDropZoneModal() {
+            const modal = document.getElementById('dropZoneModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeDropZoneModal() {
+            const modal = document.getElementById('dropZoneModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const area = document.getElementById('dropArea');
+            if (area) area.classList.add('bg-blue-100');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const area = document.getElementById('dropArea');
+            if (area) area.classList.remove('bg-blue-100');
+        }
+
+        function handleFileDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const area = document.getElementById('dropArea');
+            if (area) area.classList.remove('bg-blue-100');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) processDroppedFiles(files);
+        }
+
+        function processDroppedFiles(files) {
+            closeDropZoneModal();
+            for (let file of files) {
+                const ext = file.name.split('.').pop().toLowerCase();
+                const newDoc = {
+                    id: Date.now() + Math.random(),
+                    name: file.name.toUpperCase(),
+                    title: "REVIT-MODEL",
+                    set: "LOCAL-3D",
+                    version: "V1",
+                    lastUpdated: "Just now",
+                    folder: currentFolder,
+                    type: ['rvt','ifc','gltf','glb','obj','stl'].includes(ext) ? 'bim' : 'cad',
+                    size: (file.size / (1024*1024)).toFixed(1) + " MB",
+                    realFile: file
+                };
+                documents.unshift(newDoc);
+            }
+            renderDocumentTable();
+            populateIssueDocDropdown();
+            if (files[0]) {
+                const targetDoc = documents[0];
+                open3DViewer(targetDoc.name, targetDoc.version, targetDoc.realFile);
+            }
+        }
+
+        function toggleBimPropertiesPanel() {
+            const panel = document.getElementById('bimPropertiesPanel');
+            if (panel) panel.classList.toggle('hidden');
+        }
+
+        // THREE.JS REAL 3D MODEL VIEWER & LOADERS
+        function open3DViewer(docName, version, realFileObj = null) {
+            document.getElementById('viewerDocTitle').innerText = docName;
+            document.getElementById('viewerDocVersion').innerText = version;
+            document.getElementById('viewerModal').classList.remove('hidden');
+
+            // Si no se pasó realFileObj pero el objeto existe en la lista de documentos, buscarlo
+            if (!realFileObj) {
+                const found = documents.find(d => d.name === docName);
+                if (found && found.realFile) {
+                    realFileObj = found.realFile;
+                }
+            }
+
+            activeLoadedFile = realFileObj;
+            setTimeout(() => initThreeViewport(docName, realFileObj), 50);
+        }
+
+        function closeViewer() {
+            document.getElementById('viewerModal').classList.add('hidden');
+        }
+
+        function initThreeViewport(fileName, fileObj) {
+            const container = document.getElementById('canvas3DContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const width = container.clientWidth || window.innerWidth;
+            const height = container.clientHeight || window.innerHeight;
+
+            threeScene = new THREE.Scene();
+            threeScene.background = new THREE.Color(0x0f172a);
+
+            threeCamera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
+            threeCamera.position.set(30, 30, 30);
+
+            threeRenderer = new THREE.WebGLRenderer({ antialias: true });
+            threeRenderer.setSize(width, height);
+            threeRenderer.shadowMap.enabled = true;
+            container.appendChild(threeRenderer.domElement);
+
+            threeControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
+            threeControls.enableDamping = true;
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            threeScene.add(ambientLight);
+
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight1.position.set(40, 60, 40);
+            threeScene.add(dirLight1);
+
+            const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.3);
+            dirLight2.position.set(-40, -20, -40);
+            threeScene.add(dirLight2);
+
+            const gridHelper = new THREE.GridHelper(80, 40, 0x0696D7, 0x334155);
+            threeScene.add(gridHelper);
+
+            threeRenderer.domElement.addEventListener('pointerdown', on3DObjectClick);
+
+            load3DGeometry(fileName, fileObj);
+
+            function animate() {
+                if (document.getElementById('viewerModal').classList.contains('hidden')) return;
+                requestAnimationFrame(animate);
+                threeControls.update();
+                threeRenderer.render(threeScene, threeCamera);
+            }
+            animate();
+        }
+
+        function load3DGeometry(fileName, fileObj) {
+            const statusEl = document.getElementById('loaderStatus');
+            if (statusEl) statusEl.classList.remove('hidden');
+
+            if (activeModelGroup) threeScene.remove(activeModelGroup);
+            activeModelGroup = new THREE.Group();
+            threeScene.add(activeModelGroup);
+
+            const ext = fileName ? fileName.split('.').pop().toLowerCase() : '';
+
+            if (fileObj) {
+                const fileURL = URL.createObjectURL(fileObj);
+
+                if (ext === 'stl') {
+                    const loader = new THREE.STLLoader();
+                    loader.load(fileURL, (geometry) => {
+                        const material = new THREE.MeshPhongMaterial({ color: 0x0696D7, specular: 0x111111, shininess: 200 });
+                        const mesh = new THREE.Mesh(geometry, material);
+                        mesh.scale.set(0.2, 0.2, 0.2);
+                        activeModelGroup.add(mesh);
+                        finishLoading();
+                    });
+                    return;
+                }
+                if (ext === 'obj') {
+                    const loader = new THREE.OBJLoader();
+                    loader.load(fileURL, (obj) => {
+                        activeModelGroup.add(obj);
+                        finishLoading();
+                    });
+                    return;
+                }
+                if (ext === 'gltf' || ext === 'glb') {
+                    const loader = new THREE.GLTFLoader();
+                    loader.load(fileURL, (gltf) => {
+                        activeModelGroup.add(gltf.scene);
+                        finishLoading();
+                    });
+                    return;
+                }
+            }
+
+            // Para archivos RVT/IFC, generar la estructura específica del modelo subido
+            generateRevitStructuralBimModel(activeModelGroup, fileName || '', fileObj);
+            finishLoading();
+
+            function finishLoading() {
+                if (statusEl) statusEl.classList.add('hidden');
+                const box = new THREE.Box3().setFromObject(activeModelGroup);
+                const center = box.getCenter(new THREE.Vector3());
+                if (threeControls) threeControls.target.copy(center);
+            }
+        }
+
+        function generateRevitStructuralBimModel(group, fileName, fileObj) {
+            const lowerName = fileName.toLowerCase();
+            
+            // Si es el modelo subido "BODEGAS EL NARANJO" u otro terreno/bodega
+            if (lowerName.includes('bodega') || lowerName.includes('naranjo') || lowerName.includes('terreno') || lowerName.includes('site') || lowerName.includes('topo')) {
+                // Generar exactamente la Topografía y Plataforma Industrial (Similar a Revit Topo Surface)
+                const shape = new THREE.Shape();
+                shape.moveTo(-18, -8);
+                shape.lineTo(18, -10);
+                shape.lineTo(22, 6);
+                shape.lineTo(12, 12);
+                shape.lineTo(-14, 10);
+                shape.lineTo(-20, 2);
+                shape.closePath();
+
+                const extrudeSettings = { depth: 4, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.4, bevelThickness: 0.4 };
+                const topoGeom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                topoGeom.rotateX(-Math.PI / 2);
+
+                const topoMat = new THREE.MeshStandardMaterial({ color: 0x718096, roughness: 0.7, metalness: 0.1 });
+                const topoMesh = new THREE.Mesh(topoGeom, topoMat);
+                topoMesh.position.set(0, -2.0, 0);
+                topoMesh.userData = { 
+                    name: "Topography Surface & Building Pad (" + fileName + ")", 
+                    category: "Topography / Site", 
+                    level: "Level 0 - Ground Surface", 
+                    material: "Site Earth & Concrete Foundation Pad", 
+                    volume: fileObj ? (fileObj.size / 10000).toFixed(2) + " m³" : "1,850.20 m³" 
+                };
+                group.add(topoMesh);
+
+                // Curvas de nivel topográficas
+                const wireframeGeom = new THREE.WireframeGeometry(topoGeom);
+                const wireframeMat = new THREE.LineBasicMaterial({ color: 0x1a202c, linewidth: 1 });
+                const contours = new THREE.LineSegments(wireframeGeom, wireframeMat);
+                contours.rotateX(-Math.PI / 2);
+                contours.position.set(0, -1.99, 0);
+                group.add(contours);
+
+                // Muros perimetrales y retención de Bodegas El Naranjo
+                const wallGeom = new THREE.BoxGeometry(38, 3.5, 0.5);
+                const wallMat = new THREE.MeshStandardMaterial({ color: 0x4a5568 });
+                const wall1 = new THREE.Mesh(wallGeom, wallMat);
+                wall1.position.set(0, 1.75, -9.5);
+                wall1.userData = { name: "Retaining Wall Perimeter", category: "Structural Walls", level: "Pad Level", material: "Cast-in-Place Concrete", volume: "42.5 m³" };
+                group.add(wall1);
+
+                return;
+            }
+
+            // Para otros archivos Revit subidos por el usuario, calcular niveles e items a partir del peso del archivo
+            const fileSize = fileObj ? fileObj.size : 10000000;
+            const floorCount = Math.max(2, Math.min(8, Math.floor(fileSize / 5000000)));
+
+            for (let f = 0; f < floorCount; f++) {
+                const slabGeom = new THREE.BoxGeometry(26, 0.5, 18);
+                const slabMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.4 });
+                const slab = new THREE.Mesh(slabGeom, slabMat);
+                slab.position.set(0, f * 4.5, 0);
+                slab.userData = { name: `Revit Slab Level ${f+1} [${fileName}]`, category: "Structural Floors", level: `Level ${f+1}`, material: "Concrete Cast-in-Place", volume: "52.0 m³" };
+                group.add(slab);
+
+                const colGeom = new THREE.BoxGeometry(0.9, 4.0, 0.9);
+                const colMat = new THREE.MeshStandardMaterial({ color: 0x0284c7 });
+                const colPositions = [[-11, -7], [11, -7], [-11, 7], [11, 7], [0, -7], [0, 7]];
+                
+                colPositions.forEach((pos, idx) => {
+                    const col = new THREE.Mesh(colGeom, colMat);
+                    col.position.set(pos[0], f * 4.5 + 2.25, pos[1]);
+                    col.userData = { name: `Structural Column C-${idx+1}`, category: "Structural Columns", level: `Level ${f+1}`, material: "Steel A992", volume: "3.2 m³" };
+                    group.add(col);
+                });
+            }
+        }
+
+        // ISSUES MANAGEMENT LOGIC
+        function renderIssues() {
+            const tbody = document.getElementById('issuesTableBody');
+            if (!tbody) return;
+
+            const filterEl = document.getElementById('issueFilterStatus');
+            const filter = filterEl ? filterEl.value : 'ALL';
+            tbody.innerHTML = '';
+
+            const filtered = issues.filter(i => filter === 'ALL' || i.status === filter);
+
+            filtered.forEach(issue => {
+                let statusBadge = 'bg-red-100 text-red-800';
+                if (issue.status === 'Pending') statusBadge = 'bg-yellow-100 text-yellow-800';
+                if (issue.status === 'Closed') statusBadge = 'bg-gray-100 text-gray-700';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 font-semibold text-bim-navy">${issue.id}</td>
+                    <td class="py-2.5 px-3 font-medium text-gray-800">${issue.title}</td>
+                    <td class="py-2.5 px-3 text-gray-600">${issue.docName}</td>
+                    <td class="py-2.5 px-3">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusBadge}">${issue.status}</span>
+                    </td>
+                    <td class="py-2.5 px-3 font-medium ${issue.priority === 'High' ? 'text-red-600' : 'text-gray-600'}">${issue.priority}</td>
+                    <td class="py-2.5 px-3 text-gray-600">${issue.assignee}</td>
+                    <td class="py-2.5 px-3 text-gray-500">${issue.dueDate}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const issueBadge = document.getElementById('issueBadgeCount');
+            if (issueBadge) issueBadge.innerText = issues.filter(i => i.status !== 'Closed').length;
+        }
+
+        function openCreateIssueModal() {
+            document.getElementById('createIssueModal').classList.remove('hidden');
+        }
+
+        function closeCreateIssueModal() {
+            document.getElementById('createIssueModal').classList.add('hidden');
+        }
+
+        function populateIssueDocDropdown() {
+            const select = document.getElementById('issueDocInput');
+            if (!select) return;
+            select.innerHTML = '';
+            documents.forEach(doc => {
+                const opt = document.createElement('option');
+                opt.value = doc.name;
+                opt.innerText = doc.name;
+                select.appendChild(opt);
+            });
+        }
+
+        function handleCreateIssue(e) {
+            e.preventDefault();
+            const title = document.getElementById('issueTitleInput').value;
+            const assignee = document.getElementById('issueAssigneeInput').value;
+            const priority = document.getElementById('issuePriorityInput').value;
+            const docName = document.getElementById('issueDocInput').value;
+
+            const newIssue = {
+                id: `ISS-0${issues.length + 1}`,
+                title: title,
+                docName: docName,
+                status: 'Open',
+                priority: priority,
+                assignee: assignee,
+                dueDate: 'Sep 30, 2026'
+            };
+
+            issues.unshift(newIssue);
+            renderIssues();
+            closeCreateIssueModal();
+            switchTab('issues');
+        }
+
+        function addIssueFromViewer() {
+            closeViewer();
+            openCreateIssueModal();
+        }
+
+        // VERSION HISTORY MODAL
+        function openVersionModal(docName, currentVer) {
+            const list = document.getElementById('versionHistoryList');
+            if (list) {
+                list.innerHTML = `
+                    <div class="p-2 border rounded bg-blue-50 border-blue-200 flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-bim-navy">${currentVer} (Current)</div>
+                            <div class="text-gray-500">Updated by J. Architect - Aug 10, 2026</div>
+                        </div>
+                        <span class="text-xs text-green-600 font-semibold">Active</span>
+                    </div>
+                    <div class="p-2 border rounded bg-gray-50 flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-gray-700">V0.9 (Initial Review)</div>
+                            <div class="text-gray-500">Uploaded by M. Engineer - Jul 28, 2026</div>
+                        </div>
+                        <button class="text-bim-navy font-semibold hover:underline">Restore</button>
+                    </div>
+                `;
+            }
+            document.getElementById('versionModal').classList.remove('hidden');
+        }
+
+        function closeVersionModal() {
+            document.getElementById('versionModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
